@@ -2,13 +2,8 @@ import gradio as gr
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
-
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-#from langchain_google_vertexai import VertexAIEmbeddings
-#from google.cloud import aiplatform
-
+from langchain_google_vertexai import VertexAIEmbeddings
 import google.generativeai as genai
-
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
@@ -16,19 +11,28 @@ from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 
 
-""" PROJECT="genai-lab-390210"
+PROJECT="genai-lab-390210"
 LOCATION="europe-west3"
-aiplatform.init(project=PROJECT, location=LOCATION) """
 
+#PERSIST_PATH = "./chromadb/"
+TEXT_MODEL = "gemini-1.5-pro"
+EMBEDDING_MODEL = "textembedding-gecko@003"
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
-model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.0)
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/multilingual-embedding-002"
+model = ChatGoogleGenerativeAI(model=TEXT_MODEL, temperature=0.0)
+# embeddings = GoogleGenerativeAIEmbeddings(
+#     model=EMBEDDING_MODEL
+# )
+# Custom VertexAI Embeddings object
+EMBEDDING_NUM_BATCH = 5
+
+embeddings = VertexAIEmbeddings(
+    model_name=EMBEDDING_MODEL, batch_size=EMBEDDING_NUM_BATCH
 )
+
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
 
