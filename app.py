@@ -23,10 +23,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
 model = ChatGoogleGenerativeAI(model=TEXT_MODEL, temperature=0.0)
-# embeddings = GoogleGenerativeAIEmbeddings(
-#     model=EMBEDDING_MODEL
-# )
-# Custom VertexAI Embeddings object
+
 EMBEDDING_NUM_BATCH = 5
 
 embeddings = VertexAIEmbeddings(
