@@ -1,5 +1,6 @@
 import gradio as gr
 from langchain_community.document_loaders import UnstructuredPDFLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from langchain_google_vertexai import VertexAIEmbeddings
@@ -38,31 +39,23 @@ TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=20
 def embed_files(file_paths):
     paths = [file.name for file in file_paths]
     for path in paths:
-        text = pdf_to_text(path)
-        chunks = text_to_chunks(text)
-        embed(chunks)
+        text = embed_pdf_from_path(path)
 
 
-def pdf_to_text(pdf_path):
-    documents = []
-    loader = UnstructuredPDFLoader(pdf_path)
-    documents.extend(loader.load())
-    docs = loader.load()
-    text = ""
-    for doc in docs:
-        print(doc.page_content)
-        text += doc.page_content
-    return text
+def embed_pdf_from_path(pdf_path):
+    chunks = []
+    loader = PyPDFLoader(pdf_path)
+    for doc in loader.lazy_load():
+        txt = doc.page_content
+        text = txt.replace("\n", "")
+        texts = TEXT_SPLITTER.split_text(text)
+        chunks.append(texts)
+    embed(texts)
 
 
-def text_to_chunks(text):
-    chunks = TEXT_SPLITTER.split_text(text)
-    return chunks
-
-
-def embed(documents):
+def embed(chunks):
     vectordb = Chroma.from_documents(
-        documents=documents, embedding=EMBEDDINGS, persist_directory=CHROMA_PATH
+        documents=chunks, embedding=EMBEDDINGS, persist_directory=CHROMA_PATH
     )
     vectordb.persist()
 
