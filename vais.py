@@ -1,12 +1,11 @@
 import config as cfg
 from google.cloud import aiplatform
-from langchain_google_vertexai import (
-    VertexAIEmbeddings,
-    VectorSearchVectorStore
+from langchain_google_vertexai import VertexAIEmbeddings, VectorSearchVectorStore
+
+
+aiplatform.init(
+    project=cfg.PROJECT_ID, location=cfg.REGION, staging_bucket=cfg.BUCKET_URI
 )
-
-
-aiplatform.init(project=cfg.PROJECT_ID, location=cfg.REGION, staging_bucket=cfg.BUCKET_URI)
 
 embedding_model = VertexAIEmbeddings(model_name="textembedding-gecko@003")
 

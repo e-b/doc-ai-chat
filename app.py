@@ -4,7 +4,6 @@ import gradio as gr
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
-from langchain_google_vertexai import VertexAIEmbeddings, VectorSearchVectorStore
 from google.cloud import aiplatform
 import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -14,7 +13,6 @@ from dotenv import load_dotenv
 
 
 CHAT_MODEL = ChatGoogleGenerativeAI(model=cfg.TEXT_MODEL, temperature=0.0)
-EMBEDDINGS = VertexAIEmbeddings(model_name=cfg.EMBEDDING_MODEL)
 TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=cfg.CHUNK_SIZE, chunk_overlap=cfg.CHUNK_OVERLAP)
 
 
@@ -34,11 +32,10 @@ def embed_docs_from_pdf_path(pdf_path):
     loader = PyPDFLoader(pdf_path)
     docs = loader.load()
     chunk_docs = TEXT_SPLITTER.split_documents(docs)
-    embed(chunk_docs)
-
-
-def embed(texts, metadatas):
+    texts = [doc.page_content for doc in chunk_docs]
+    metadatas = [doc.metadata for doc in chunk_docs]
     vais.embed(texts, metadatas)
+
 
 
 def get_conversational_chain():
