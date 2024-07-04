@@ -1,68 +1,44 @@
+import config as cfg
+import vais
 import gradio as gr
-from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
-from langchain_google_vertexai import VertexAIEmbeddings
+from langchain_google_vertexai import VertexAIEmbeddings, VectorSearchVectorStore
+from google.cloud import aiplatform
 import google.generativeai as genai
-from langchain_community.vectorstores import Chroma
-import chromadb
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 
 
-PROJECT = "genai-lab-390210"
-LOCATION = "europe-west3"
+CHAT_MODEL = ChatGoogleGenerativeAI(model=cfg.TEXT_MODEL, temperature=0.0)
+EMBEDDINGS = VertexAIEmbeddings(model_name=cfg.EMBEDDING_MODEL)
+TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=cfg.CHUNK_SIZE, chunk_overlap=cfg.CHUNK_OVERLAP)
 
-TEXT_MODEL = "gemini-1.5-pro"
-EMBEDDING_MODEL = "textembedding-gecko@003"
-CHROMA_COLLECTION = "impp_docs"
-CHROMA_PATH = "db"
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-
-model = ChatGoogleGenerativeAI(model=TEXT_MODEL, temperature=0.0)
-
-EMBEDDING_NUM_BATCH = 5
-
-EMBEDDINGS = VertexAIEmbeddings(
-    model_name=EMBEDDING_MODEL, batch_size=EMBEDDING_NUM_BATCH
-)
-
-TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+aiplatform.init(project=cfg.PROJECT_ID, location=cfg.REGION)
 
 
 def embed_files(file_paths):
     paths = [file.name for file in file_paths]
     for path in paths:
-        text = embed_pdf_from_path(path)
+        text = embed_docs_from_pdf_path(path)
 
 
-def embed_pdf_from_path(pdf_path):
-    chunks = []
+def embed_docs_from_pdf_path(pdf_path):
     loader = PyPDFLoader(pdf_path)
-    for doc in loader.lazy_load():
-        txt = doc.page_content
-        text = txt.replace("\n", "")
-        texts = TEXT_SPLITTER.split_text(text)
-        chunks.append(texts)
-    embed(texts)
+    docs = loader.load()
+    chunk_docs = TEXT_SPLITTER.split_documents(docs)
+    embed(chunk_docs)
 
 
-def embed(chunks):
-    vectordb = Chroma.from_documents(
-        documents=chunks, embedding=EMBEDDINGS, persist_directory=CHROMA_PATH
-    )
-    vectordb.persist()
-
-
-def get_vectordb():
-    vectordb = Chroma(embedding_function=EMBEDDINGS, persist_directory=CHROMA_PATH)
-    return vectordb
+def embed(texts, metadatas):
+    vais.embed(texts, metadatas)
 
 
 def get_conversational_chain():
@@ -76,19 +52,13 @@ def get_conversational_chain():
 
     prompt = PromptTemplate(template=prompt, input_variables=["context", "question"])
 
-    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
+    chain = load_qa_chain(CHAT_MODEL, chain_type="stuff", prompt=prompt)
     return chain
 
 
-def ask(user_question):
-    retriever = get_vectordb().as_retriever()
-    docs = retriever.get_relevant_documents(user_question)
-    chain = get_conversational_chain()
-    response = chain(
-        {"input_documents": docs, "question": user_question}, return_only_outputs=True
-    )
-    print(response)
-
+def search(question):
+    result = vais.search(question)
+    return result
 
 def main():
     with gr.Blocks() as demo:
@@ -101,7 +71,8 @@ def main():
         question = gr.TextArea(label="question", lines=8)
         submit = gr.Button("submit")
         answer = gr.TextArea(label="answer", lines=8)
-        submit.click(fn=ask, inputs=question, outputs=answer)
+        status = gr.Text(label="status", value="")
+        submit.click(fn=search, inputs=question, outputs=answer)
     demo.launch()
 
 
